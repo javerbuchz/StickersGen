@@ -1,1 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Stickers Personalizado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+        }
+        
+        .page {
+            background: white;
+            margin: 0 auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: grid;
+            gap: 0mm;
+        }
+        
+        .sticker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            background: white;
+        }
+        
+        .sticker.with-cutlines {
+            border: 1px dashed #999;
+        }
+        
+        .sticker.no-cutlines {
+            border: none;
+        }
+        
+        .sticker img {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .placeholder-text {
+            color: #999;
+            font-size: 10px;
+            text-align: center;
+            user-select: none;
+        }
+        
+        .controls {
+            max-width: 900px;
+            margin: 0 auto 20px;
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .controls h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .control-section h3 {
+            margin-bottom: 12px;
+            color: #555;
+            font-size: 16px;
+        }
+        
+        .control-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .control-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .control-group input[type="file"] {
+            padding: 10px;
+        }
+        
+        .control-group input[type="checkbox"],
+        .control-group input[type="radio"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button.secondary {
+            background: #2196F3;
+        }
+        
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        
+        button.danger {
+            background: #f44336;
+        }
+        
+        button.danger:hover {
+            background: #da190b;
+        }
+        
+        .preview-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .preview-info strong {
+            color: #1976d2;
+        }
+        
+        #loadingMessage {
+            display: none;
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .controls {
+                display: none;
+            }
+            
+            .page {
+                box-shadow: none;
+                margin: 0;
+                page-break-after: always;
+            }
+            
+            .sticker.with-cutlines {
+                border: 1px dashed #999;
+                background: white;
+            }
+            
+            .sticker.no-cutlines {
+                border: none;
+                background: white;
+            }
+            
+            .placeholder-text {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h2>🎨 Generador de Stickers Personalizado</h2>
+        
+        <div class="control-section">
+            <h3>📁 Imagen</h3>
+            <div class="control-row">
+                <div class="control-group" style="flex: 2;">
+                    <label>Seleccionar imagen:</label>
+                    <input type="file" id="imageInput" accept="image/*">
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>📐 Dimensiones del Sticker</h3>
+            <div class="control-row">
+                <div class="control-group">
+                    <label>Ancho (cm):</label>
+                    <input type="number" id="stickerWidth" value="4" min="0.5" max="20" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label>Alto (cm):</label>
+                    <input type="number" id="stickerHeight" value="3" min="0.5" max="28" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="maintainAspect" checked>
+                        Mantener relación de aspecto
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>📄 Tipo de Hoja y Márgenes</h3>
+            <div class="control-row">
+                <div class="control-group">
+                    <label>Tamaño de papel:</label>
+                    <select id="paperSize">
+                        <option value="a4">A4 (210 × 297 mm)</option>
+                        <option value="carta">Carta (216 × 279 mm)</option>
+                        <option value="oficio">Oficio (216 × 330 mm)</option>
+                        <option value="legal">Legal (216 × 356 mm)</option>
+                        <option value="avery5160">Avery 5160 (210 × 297 mm)</option>
+                        <option value="avery5161">Avery 5161 (210 × 297 mm)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Márgenes de página (mm):</label>
+                    <input type="number" id="pageMargin" value="5" min="0" max="20" step="0.5">
+                </div>
+            </div>
+            <div class="control-row">
+                <div class="control-group">
+                    <label>Espacio entre stickers (mm):</label>
+                    <input type="number" id="stickerGap" value="0" min="0" max="10" step="0.5">
+                </div>
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showCutLines">
+                        Mostrar líneas de corte
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>🔢 Cantidad de Stickers</h3>
+            <div class="control-row">
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="radio" name="quantity" id="quantityAuto" checked>
+                        Todos los que entren en la página
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="radio" name="quantity" id="quantityCustom">
+                        Cantidad específica:
+                    </label>
+                    <input type="number" id="customQuantity" value="10" min="1" max="1000" disabled>
+                </div>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button onclick="generateStickers()" class="secondary">🔄 Generar Vista Previa</button>
+            <button onclick="printPage()">🖨️ Imprimir</button>
+            <button onclick="downloadPDF()" class="danger">📄 Descargar PDF</button>
+        </div>
+        
+        <div id="loadingMessage">⏳ Generando PDF, por favor espera...</div>
+        
+        <div class="preview-info" id="previewInfo">
+            <strong>ℹ️ Información:</strong><br>
+            Configura los parámetros y haz clic en "Generar Vista Previa" para ver cómo quedarán tus stickers.
+        </div>
+    </div>
+
+    <div class="page" id="stickerPage"></div>
+
+    <script>
+        let loadedImage = null;
+        let originalAspectRatio = null;
+        
+        const paperSizes = {
+            a4: { width: 210, height: 297 },
+            carta: { width: 216, height: 279 },
+            oficio: { width: 216, height: 330 },
+            legal: { width: 216, height: 356 },
+            avery5160: { width: 210, height: 297 },
+            avery5161: { width: 210, height: 297 }
+        };
+        
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        originalAspectRatio = img.width / img.height;
+                        loadedImage = event.target.result;
+                        
+                        // Si mantener aspecto está activado, ajustar altura automáticamente
+                        if (document.getElementById('maintainAspect').checked) {
+                            updateDimensionsFromAspect();
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        document.getElementById('maintainAspect').addEventListener('change', function() {
+            if (this.checked && originalAspectRatio) {
+                updateDimensionsFromAspect();
+            }
+        });
+        
+        document.getElementById('stickerWidth').addEventListener('input', function() {
+            if (document.getElementById('maintainAspect').checked && originalAspectRatio) {
+                const width = parseFloat(this.value);
+                const height = width / originalAspectRatio;
+                document.getElementById('stickerHeight').value = height.toFixed(2);
+            }
+        });
+        
+        document.getElementById('stickerHeight').addEventListener('input', function() {
+            if (document.getElementById('maintainAspect').checked && originalAspectRatio) {
+                const height = parseFloat(this.value);
+                const width = height * originalAspectRatio;
+                document.getElementById('stickerWidth').value = width.toFixed(2);
+            }
+        });
+        
+        document.getElementById('quantityCustom').addEventListener('change', function() {
+            document.getElementById('customQuantity').disabled = !this.checked;
+        });
+        
+        document.getElementById('quantityAuto').addEventListener('change', function() {
+            document.getElementById('customQuantity').disabled = this.checked;
+        });
+        
+        function updateDimensionsFromAspect() {
+            const width = parseFloat(document.getElementById('stickerWidth').value);
+            const height = width / originalAspectRatio;
+            document.getElementById('stickerHeight').value = height.toFixed(2);
+        }
+        
+        function generateStickers() {
+            const stickerWidth = parseFloat(document.getElementById('stickerWidth').value) * 10; // cm to mm
+            const stickerHeight = parseFloat(document.getElementById('stickerHeight').value) * 10; // cm to mm
+            const paperSize = paperSizes[document.getElementById('paperSize').value];
+            const isAutoQuantity = document.getElementById('quantityAuto').checked;
+            const customQty = parseInt(document.getElementById('customQuantity').value);
+            const maintainAspect = document.getElementById('maintainAspect').checked;
+            const margin = parseFloat(document.getElementById('pageMargin').value);
+            const gap = parseFloat(document.getElementById('stickerGap').value);
+            const showCutLines = document.getElementById('showCutLines').checked;
+            
+            // Calcular área imprimible
+            const printableWidth = paperSize.width - (margin * 2);
+            const printableHeight = paperSize.height - (margin * 2);
+            
+            // Calcular cuántos stickers caben en el área imprimible (incluyendo el espacio entre ellos)
+            const cols = Math.floor((printableWidth + gap) / (stickerWidth + gap));
+            const rows = Math.floor((printableHeight + gap) / (stickerHeight + gap));
+            const maxStickers = cols * rows;
+            
+            const totalStickers = isAutoQuantity ? maxStickers : Math.min(customQty, maxStickers);
+            
+            // Configurar la página
+            const page = document.getElementById('stickerPage');
+            page.style.width = paperSize.width + 'mm';
+            page.style.height = paperSize.height + 'mm';
+            page.style.padding = margin + 'mm';
+            page.style.gridTemplateColumns = `repeat(${cols}, ${stickerWidth}mm)`;
+            page.style.gridAutoRows = stickerHeight + 'mm';
+            page.style.gap = gap + 'mm';
+            
+            // Limpiar stickers anteriores
+            page.innerHTML = '';
+            
+            // Generar stickers
+            for (let i = 0; i < totalStickers; i++) {
+                const sticker = document.createElement('div');
+                sticker.className = showCutLines ? 'sticker with-cutlines' : 'sticker no-cutlines';
+                sticker.style.width = stickerWidth + 'mm';
+                sticker.style.height = stickerHeight + 'mm';
+                
+                if (loadedImage) {
+                    const img = document.createElement('img');
+                    img.src = loadedImage;
+                    img.style.objectFit = maintainAspect ? 'contain' : 'cover';
+                    sticker.appendChild(img);
+                } else {
+                    sticker.innerHTML = `<div class="placeholder-text">Sticker ${i + 1}<br>${(stickerWidth/10).toFixed(1)}×${(stickerHeight/10).toFixed(1)}cm</div>`;
+                }
+                
+                page.appendChild(sticker);
+            }
+            
+            // Actualizar info
+            const info = document.getElementById('previewInfo');
+            info.innerHTML = `
+                <strong>✅ Vista Previa Generada:</strong><br>
+                • Papel: ${document.getElementById('paperSize').options[document.getElementById('paperSize').selectedIndex].text}<br>
+                • Márgenes de página: ${margin}mm<br>
+                • Espacio entre stickers: ${gap}mm<br>
+                • Líneas de corte: ${showCutLines ? 'Sí' : 'No'}<br>
+                • Área imprimible: ${printableWidth}mm × ${printableHeight}mm<br>
+                • Tamaño sticker: ${(stickerWidth/10).toFixed(1)} × ${(stickerHeight/10).toFixed(1)} cm<br>
+                • Distribución: ${cols} columnas × ${rows} filas<br>
+                • Total stickers: ${totalStickers} (máximo posible: ${maxStickers})<br>
+                • Relación de aspecto: ${maintainAspect ? 'Mantenida' : 'Libre'}
+            `;
+        }
+        
+        function printPage() {
+            if (!loadedImage) {
+                alert('Por favor, selecciona una imagen antes de imprimir.');
+                return;
+            }
+            
+            // Generar stickers antes de imprimir si no se ha hecho
+            if (document.getElementById('stickerPage').children.length === 0) {
+                generateStickers();
+            }
+            
+            window.print();
+        }
+        
+        async function downloadPDF() {
+            if (!loadedImage) {
+                alert('Por favor, selecciona una imagen antes de generar el PDF.');
+                return;
+            }
+            
+            // Generar stickers antes de crear PDF si no se ha hecho
+            if (document.getElementById('stickerPage').children.length === 0) {
+                generateStickers();
+            }
+            
+            // Mostrar mensaje de carga
+            document.getElementById('loadingMessage').style.display = 'block';
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const page = document.getElementById('stickerPage');
+                const paperSize = paperSizes[document.getElementById('paperSize').value];
+                
+                // Capturar la página como imagen
+                const canvas = await html2canvas(page, {
+                    scale: 3, // Alta calidad
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                });
+                
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                
+                // Crear PDF con el tamaño de papel correcto
+                let orientation = 'portrait';
+                let format = 'a4';
+                
+                if (document.getElementById('paperSize').value === 'carta') {
+                    format = 'letter';
+                } else if (document.getElementById('paperSize').value === 'legal') {
+                    format = 'legal';
+                }
+                
+                const pdf = new jsPDF({
+                    orientation: orientation,
+                    unit: 'mm',
+                    format: format
+                });
+                
+                // Agregar la imagen al PDF
+                const pdfWidth = paperSize.width;
+                const pdfHeight = paperSize.height;
+                
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                
+                // Descargar el PDF
+                pdf.save('stickers.pdf');
+                
+            } catch (error) {
+                console.error('Error al generar PDF:', error);
+                alert('Hubo un error al generar el PDF. Por favor, intenta de nuevo.');
+            } finally {
+                // Ocultar mensaje de carga
+                document.getElementById('loadingMessage').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
 
